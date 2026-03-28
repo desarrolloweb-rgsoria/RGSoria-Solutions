@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title id="page-title">Panel Admin - Cargando...</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.5;
+        }
+        :root {
+            --color-primario: #0B4F6C;
+            --color-secundario: #F18F01;
+            --color-acento: #2EC4B6;
+            --color-texto: #2D3047;
+            --color-fondo: #F7F7F2;
+        }
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 260px;
+            height: 100%;
+            background: var(--color-primario);
+            color: white;
+            padding: 1.5rem;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .sidebar h2 {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .sidebar nav ul {
+            list-style: none;
+        }
+        .sidebar nav li {
+            margin-bottom: 0.5rem;
+        }
+        .sidebar nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.8rem 1rem;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+        .sidebar nav a:hover,
+        .sidebar nav a.active {
+            background: rgba(255,255,255,0.2);
+        }
+        .sidebar nav a i {
+            width: 24px;
+        }
+        .main-content {
+            margin-left: 260px;
+            padding: 2rem;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--color-secundario);
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .header h1 {
+            color: var(--color-primario);
+        }
+        .logo-header {
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: var(--color-secundario);
+            padding: 0.3rem 1rem;
+            border-radius: 50px;
+            display: inline-block;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--color-primario);
+        }
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        /* ===== SECCIONES ===== */
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            width: 100%;
+            overflow-x: auto;
+        }
+        
+        .section-card h2 {
+            color: var(--color-primario);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        /* ===== TABLA ADAPTABLE ===== */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 100%;
+        }
+        
+        .data-table th,
+        .data-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+            word-break: break-word;
+        }
+        
+        .data-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        
+        .data-table input,
+        .data-table textarea {
+            width: 100%;
+            min-width: 120px;
+            padding: 0.6rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            background: white;
+            transition: border-color 0.2s;
+        }
+        
+        .data-table input:focus,
+        .data-table textarea:focus {
+            outline: none;
+            border-color: var(--color-secundario);
+            box-shadow: 0 0 0 2px rgba(241, 143, 1, 0.1);
+        }
+        
+        .data-table textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+        
+        .save-btn {
+            background: var(--color-secundario);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .save-btn:hover {
+            background: var(--color-acento);
+            transform: translateY(-1px);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        
+        /* ===== EN MÓVIL: TARJETAS APILABLES ===== */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 70px;
+                padding: 1rem;
+            }
+            .sidebar h2 { display: none; }
+            .sidebar nav a span { display: none; }
+            .main-content {
+                margin-left: 70px;
+                padding: 1rem;
+            }
+            
+            /* Convertir tabla en tarjetas apilables */
+            .table-responsive {
+                overflow-x: visible;
+            }
+            .data-table,
+            .data-table thead,
+            .data-table tbody,
+            .data-table th,
+            .data-table td,
+            .data-table tr {
+                display: block;
+            }
+            .data-table thead {
+                display: none;
+            }
+            .data-table tr {
+                margin-bottom: 1.5rem;
+                border: 1px solid #e0e0e0;
+                border-radius: 12px;
+                padding: 1rem;
+                background: white;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            .data-table td {
+                display: flex;
+                align-items: flex-start;
+                gap: 0.8rem;
+                padding: 0.6rem 0;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .data-table td:last-child {
+                border-bottom: none;
+            }
+            .data-table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                min-width: 100px;
+                color: var(--color-primario);
+            }
+            .data-table input,
+            .data-table textarea {
+                flex: 1;
+                min-width: 0;
+            }
+            .save-btn {
+                margin-top: 0.5rem;
+                width: 100%;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .data-table td:before {
+                min-width: 85px;
+                font-size: 0.85rem;
+            }
+            .data-table input,
+            .data-table textarea {
+                font-size: 0.85rem;
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-panel">
+        <div class="sidebar">
+            <h2><i class="fas fa-hotel"></i> <span id="sidebar-logo">Admin</span></h2>
+            <nav>
+                <ul>
+                    <li><a href="#" class="nav-link active" data-section="dashboard"><i class="fas fa-chart-line"></i> <span>Dashboard</span></a></li>
+                    <li><a href="#" class="nav-link" data-section="habitaciones"><i class="fas fa-bed"></i> <span>Habitaciones</span></a></li>
+                    <li><a href="#" class="nav-link" data-section="experiencias"><i class="fas fa-umbrella-beach"></i> <span>Experiencias</span></a></li>
+                    <li><a href="#" class="nav-link" data-section="servicios"><i class="fas fa-concierge-bell"></i> <span>Servicios</span></a></li>
+                    <li><a href="#" class="nav-link" data-section="reservas"><i class="fas fa-calendar-check"></i> <span>Reservas</span></a></li>
+                </ul>
+            </nav>
+        </div>
+
+        <div class="main-content">
+            <div class="header">
+                <div>
+                    <h1 id="sectionTitle">Dashboard</h1>
+                    <div id="hotel-info" class="logo-header"></div>
+                </div>
+                <div id="saveStatus"></div>
+            </div>
+            <div id="contentArea">
+                <div class="loading">Cargando...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // CONFIGURACIÓN DE GITHUB
+        // ============================================
+        const GITHUB_USER = 'desarrolladorgsoria';
+        const GITHUB_REPO = 'hoteleria';
+        const GITHUB_TOKEN = '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';
+        const ARCHIVO = 'datos.json';
+        
+        // ============================================
+        // DATOS GLOBALES
+        // ============================================
+        let configuracion = {};
+        let datos = {
+            habitaciones: [],
+            experiencias: [],
+            servicios: [],
+            reservas: []
+        };
+        
+        let currentSection = 'dashboard';
+        let chart = null;
+
+        // ============================================
+        // CARGA DE DATOS
+        // ============================================
+        async function cargarConfiguracion() {
+            try {
+                const response = await fetch('configuracion.json');
+                if (!response.ok) throw new Error('No se pudo cargar configuracion.json');
+                configuracion = await response.json();
+                console.log('✅ Configuración cargada');
+                
+                if (configuracion.marca?.colores) {
+                    const c = configuracion.marca.colores;
+                    document.documentElement.style.setProperty('--color-primario', c.primario);
+                    document.documentElement.style.setProperty('--color-secundario', c.secundario);
+                    document.documentElement.style.setProperty('--color-acento', c.acento);
+                    document.documentElement.style.setProperty('--color-texto', c.texto);
+                    document.documentElement.style.setProperty('--color-fondo', c.fondo);
+                }
+                
+                if (configuracion.marca?.logo) {
+                    document.getElementById('sidebar-logo').textContent = configuracion.marca.logo;
+                    document.getElementById('hotel-info').innerHTML = configuracion.marca.logo;
+                }
+                if (configuracion.marca?.nombre) {
+                    document.title = `Panel Admin - ${configuracion.marca.nombre}`;
+                }
+                
+                return true;
+            } catch (error) {
+                console.error('Error cargando configuración:', error);
+                return false;
+            }
+        }
+
+        async function cargarDatos() {
+            try {
+                const response = await fetch('datos.json');
+                if (!response.ok) throw new Error('No se pudo cargar datos.json');
+                datos = await response.json();
+                console.log('✅ Datos cargados');
+                return true;
+            } catch (error) {
+                console.error('Error:', error);
+                return false;
+            }
+        }
+
+        // ============================================
+        // GUARDAR EN GITHUB (REAL)
+        // ============================================
+        async function guardarDatos() {
+            try {
+                mostrarMensaje('💾 Guardando cambios...', 'success');
+                
+                // 1. Obtener el SHA del archivo actual
+                const shaResponse = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${ARCHIVO}`, {
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+                
+                if (!shaResponse.ok) {
+                    throw new Error('No se pudo obtener el archivo');
+                }
+                
+                const shaData = await shaResponse.json();
+                const sha = shaData.sha;
+                
+                // 2. Preparar el contenido (convertir JSON a base64)
+                const contenido = JSON.stringify(datos, null, 2);
+                const contenidoBase64 = btoa(unescape(encodeURIComponent(contenido)));
+                
+                // 3. Actualizar el archivo en GitHub
+                const updateResponse = await fetch(`https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/${ARCHIVO}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/vnd.github.v3+json'
+                    },
+                    body: JSON.stringify({
+                        message: `Actualización desde panel admin - ${new Date().toLocaleString()}`,
+                        content: contenidoBase64,
+                        sha: sha,
+                        branch: 'main'
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    throw new Error('Error al guardar en GitHub');
+                }
+                
+                mostrarMensaje('✅ Datos guardados correctamente en GitHub', 'success');
+                return true;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('❌ Error al guardar: ' + error.message, 'error');
+                return false;
+            }
+        }
+
+        function mostrarMensaje(mensaje, tipo) {
+            const statusDiv = document.getElementById('saveStatus');
+            statusDiv.innerHTML = `<div class="${tipo}">${mensaje}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+        // ============================================
+        // NAVEGACIÓN
+        // ============================================
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                loadSection(section);
+            });
+        });
+
+        function loadSection(section) {
+            currentSection = section;
+            const titles = {
+                dashboard: 'Dashboard',
+                habitaciones: configuracion.admin?.textos?.titulo_habitaciones || 'Gestión de Habitaciones',
+                experiencias: configuracion.admin?.textos?.titulo_experiencias || 'Gestión de Experiencias',
+                servicios: configuracion.admin?.textos?.titulo_servicios || 'Gestión de Servicios',
+                reservas: configuracion.admin?.textos?.titulo_reservas || 'Lista de Reservas'
+            };
+            document.getElementById('sectionTitle').textContent = titles[section];
+
+            switch(section) {
+                case 'dashboard':
+                    loadDashboard();
+                    break;
+                case 'habitaciones':
+                    loadHabitaciones();
+                    break;
+                case 'experiencias':
+                    loadExperiencias();
+                    break;
+                case 'servicios':
+                    loadServicios();
+                    break;
+                case 'reservas':
+                    loadReservas();
+                    break;
+            }
+        }
+
+        // ============================================
+        // DASHBOARD
+        // ============================================
+        async function loadDashboard() {
+            const content = document.getElementById('contentArea');
+            content.innerHTML = '<div class="loading">Cargando estadísticas...</div>';
+            
+            await cargarDatos();
+            
+            const totalReservas = datos.reservas?.length || 0;
+            const ingresos = datos.reservas?.reduce((sum, r) => sum + (r.total || 0), 0) || 0;
+            
+            const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            const reservasPorMes = new Array(12).fill(0);
+            datos.reservas?.forEach(r => {
+                if (r.fecha) {
+                    const mes = new Date(r.fecha).getMonth();
+                    reservasPorMes[mes]++;
+                }
+            });
+            
+            content.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card"><h3>Total Habitaciones</h3><div class="value">${datos.habitaciones?.length || 0}</div></div>
+                    <div class="stat-card"><h3>Total Experiencias</h3><div class="value">${datos.experiencias?.length || 0}</div></div>
+                    <div class="stat-card"><h3>Total Reservas</h3><div class="value">${totalReservas}</div></div>
+                    <div class="stat-card"><h3>Ingresos Totales</h3><div class="value">$${ingresos.toLocaleString()}</div></div>
+                </div>
+                <div class="chart-container"><canvas id="reservasChart"></canvas></div>
+            `;
+            
+            const ctx = document.getElementById('reservasChart').getContext('2d');
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: meses, datasets: [{ label: 'Reservas por mes', data: reservasPorMes, backgroundColor: '#F18F01', borderRadius: 8 }] },
+                options: { responsive: true, plugins: { legend: { position: 'top' } } }
+            });
+        }
+
+        // ============================================
+        // FUNCIÓN PARA GENERAR TABLA CON LABELS
+        // ============================================
+        function generarTablaConLabels(items, columnas, tipo) {
+            if (!items || items.length === 0) return '<div class="section-card">No hay datos.</div>';
+            
+            const btnTexto = configuracion.admin?.textos?.boton_guardar || 'Guardar';
+            
+            let html = `<div class="section-card"><div class="table-responsive"><table class="data-table"><thead>`;
+            
+            // Cabeceras
+            columnas.forEach(col => {
+                html += `<th>${col.label}</th>`;
+            });
+            html += `</thead><tbody>`;
+            
+            // Filas
+            items.forEach((item, idx) => {
+                html += `<tr data-id="${item.id || idx}">`;
+                columnas.forEach(col => {
+                    let valor = '';
+                    let inputHtml = '';
+                    
+                    if (col.campo === 'id') {
+                        valor = item.id || idx + 1;
+                        html += `<td data-label="${col.label}">${valor}</td>`;
+                    } else if (col.campo === 'nombre') {
+                        inputHtml = `<input type="text" class="edit-${col.campo}" value="${escapeHtml(item[col.campo] || '')}">`;
+                        html += `<td data-label="${col.label}">${inputHtml}</td>`;
+                    } else if (col.campo === 'descripcion') {
+                        inputHtml = `<textarea class="edit-${col.campo}" rows="2">${escapeHtml(item[col.campo] || '')}</textarea>`;
+                        html += `<td data-label="${col.label}">${inputHtml}</td>`;
+                    } else if (col.campo === 'precio' || col.campo === 'disponibles') {
+                        inputHtml = `<input type="number" class="edit-${col.campo}" value="${item[col.campo] || 0}">`;
+                        html += `<td data-label="${col.label}">${inputHtml}</td>`;
+                    } else if (col.campo === 'duracion' || col.campo === 'horario' || col.campo === 'promocion') {
+                        inputHtml = `<input type="text" class="edit-${col.campo}" value="${escapeHtml(item[col.campo] || '')}">`;
+                        html += `<td data-label="${col.label}">${inputHtml}</td>`;
+                    } else if (col.campo === 'acciones') {
+                        html += `<td data-label="${col.label}"><button class="save-btn" onclick="guardar${tipo}(${item.id || idx})">${btnTexto}</button></td>`;
+                    }
+                });
+                html += `</tr>`;
+            });
+            
+            html += `</tbody></table></div></div>`;
+            return html;
+        }
+
+        // ============================================
+        // HABITACIONES
+        // ============================================
+        async function loadHabitaciones() {
+            const content = document.getElementById('contentArea');
+            content.innerHTML = '<div class="loading">Cargando habitaciones...</div>';
+            
+            await cargarDatos();
+            
+            const columnas = [
+                { label: 'ID', campo: 'id' },
+                { label: 'Nombre', campo: 'nombre' },
+                { label: 'Descripción', campo: 'descripcion' },
+                { label: 'Precio', campo: 'precio' },
+                { label: 'Disponibles', campo: 'disponibles' },
+                { label: 'Promoción', campo: 'promocion' },
+                { label: 'Acciones', campo: 'acciones' }
+            ];
+            
+            content.innerHTML = generarTablaConLabels(datos.habitaciones, columnas, 'Habitacion');
+        }
+        
+        window.guardarHabitacion = async function(id) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (!row) return;
+            
+            const nombre = row.querySelector('.edit-nombre')?.value || '';
+            const descripcion = row.querySelector('.edit-descripcion')?.value || '';
+            const precio = parseInt(row.querySelector('.edit-precio')?.value) || 0;
+            const disponibles = parseInt(row.querySelector('.edit-disponibles')?.value) || 0;
+            const promocion = row.querySelector('.edit-promocion')?.value || '';
+            
+            const index = datos.habitaciones.findIndex(h => h.id === id);
+            if (index !== -1) {
+                datos.habitaciones[index] = {
+                    ...datos.habitaciones[index],
+                    nombre,
+                    descripcion,
+                    precio,
+                    disponibles,
+                    promocion: promocion || null
+                };
+                await guardarDatos();
+                loadHabitaciones();
+            }
+        };
+
+        // ============================================
+        // EXPERIENCIAS
+        // ============================================
+        async function loadExperiencias() {
+            const content = document.getElementById('contentArea');
+            content.innerHTML = '<div class="loading">Cargando experiencias...</div>';
+            
+            await cargarDatos();
+            
+            const columnas = [
+                { label: 'ID', campo: 'id' },
+                { label: 'Nombre', campo: 'nombre' },
+                { label: 'Descripción', campo: 'descripcion' },
+                { label: 'Precio', campo: 'precio' },
+                { label: 'Duración', campo: 'duracion' },
+                { label: 'Acciones', campo: 'acciones' }
+            ];
+            
+            content.innerHTML = generarTablaConLabels(datos.experiencias, columnas, 'Experiencia');
+        }
+        
+        window.guardarExperiencia = async function(id) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (!row) return;
+            
+            const nombre = row.querySelector('.edit-nombre')?.value || '';
+            const descripcion = row.querySelector('.edit-descripcion')?.value || '';
+            const precio = parseInt(row.querySelector('.edit-precio')?.value) || 0;
+            const duracion = row.querySelector('.edit-duracion')?.value || '';
+            
+            const index = datos.experiencias.findIndex(e => e.id === id);
+            if (index !== -1) {
+                datos.experiencias[index] = {
+                    ...datos.experiencias[index],
+                    nombre,
+                    descripcion,
+                    precio,
+                    duracion
+                };
+                await guardarDatos();
+                loadExperiencias();
+            }
+        };
+
+        // ============================================
+        // SERVICIOS
+        // ============================================
+        async function loadServicios() {
+            const content = document.getElementById('contentArea');
+            content.innerHTML = '<div class="loading">Cargando servicios...</div>';
+            
+            await cargarDatos();
+            
+            const serviciosConId = datos.servicios.map((s, idx) => ({ ...s, id: idx + 1 }));
+            const columnas = [
+                { label: 'ID', campo: 'id' },
+                { label: 'Nombre', campo: 'nombre' },
+                { label: 'Descripción', campo: 'descripcion' },
+                { label: 'Horario', campo: 'horario' },
+                { label: 'Acciones', campo: 'acciones' }
+            ];
+            
+            content.innerHTML = generarTablaConLabels(serviciosConId, columnas, 'Servicio');
+        }
+        
+        window.guardarServicio = async function(id) {
+            const row = document.querySelector(`tr[data-id="${id}"]`);
+            if (!row) return;
+            
+            const nombre = row.querySelector('.edit-nombre')?.value || '';
+            const descripcion = row.querySelector('.edit-descripcion')?.value || '';
+            const horario = row.querySelector('.edit-horario')?.value || '';
+            
+            const index = id - 1;
+            if (datos.servicios[index]) {
+                datos.servicios[index] = {
+                    ...datos.servicios[index],
+                    nombre,
+                    descripcion,
+                    horario
+                };
+                await guardarDatos();
+                loadServicios();
+            }
+        };
+
+        // ============================================
+        // RESERVAS
+        // ============================================
+        async function loadReservas() {
+            const content = document.getElementById('contentArea');
+            content.innerHTML = '<div class="loading">Cargando reservas...</div>';
+            
+            await cargarDatos();
+            
+            if (!datos.reservas || datos.reservas.length === 0) {
+                content.innerHTML = '<div class="section-card">No hay reservas aún.</div>';
+                return;
+            }
+            
+            let html = `<div class="section-card">
+                <h2><i class="fas fa-calendar-check"></i> Reservas</h2>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <th>ID</th><th>Cliente</th><th>Email</th><th>Item</th><th>Fechas</th><th>Total</th><th>Estado</th><th>Fecha</th>
+                        </thead>
+                        <tbody>`;
+            
+            datos.reservas.forEach(r => {
+                const fechas = r.tipo === 'habitacion' ? `${r.fecha_inicio || '-'} → ${r.fecha_fin || '-'}` : r.fecha || '-';
+                html += `
+                    <tr>
+                        <td data-label="ID">${r.id || '-'}</td>
+                        <td data-label="Cliente">${escapeHtml(r.cliente_nombre || '-')}</td>
+                        <td data-label="Email">${escapeHtml(r.cliente_email || '-')}</td>
+                        <td data-label="Item">${escapeHtml(r.item_nombre || '-')}</td>
+                        <td data-label="Fechas">${fechas}</td>
+                        <td data-label="Total">$${r.total || 0}</td>
+                        <td data-label="Estado"><span style="background:${r.estado === 'pendiente' ? '#ff9800' : '#4caf50'}; color:white; padding:0.2rem 0.5rem; border-radius:20px;">${r.estado || 'pendiente'}</span></td>
+                        <td data-label="Fecha">${r.fecha_reserva ? new Date(r.fecha_reserva).toLocaleDateString() : '-'}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `</tbody></table></div></div>`;
+            content.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, m => {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Iniciar
+        Promise.all([cargarConfiguracion(), cargarDatos()]).then(() => {
+            loadSection('dashboard');
+        });
+    </script>
+</body>
+</html>
