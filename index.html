@@ -1786,6 +1786,83 @@
 
     <script>
         // ============================================
+        // FUNCIÓN DE OPTIMIZACIÓN DE IMÁGENES
+        // ============================================
+        
+        /**
+         * Optimiza URLs de imágenes para mejor rendimiento
+         * @param {string} url - URL original de la imagen
+         * @param {number} ancho - Ancho deseado en píxeles
+         * @param {number} alto - Alto deseado en píxeles (opcional)
+         * @param {number} calidad - Calidad de 1 a 100 (por defecto 80)
+         * @returns {string} URL optimizada
+         */
+        function optimizarImagen(url, ancho, alto = null, calidad = 80) {
+            if (!url) return '';
+            
+            // Si es Unsplash, usar sus parámetros de optimización
+            if (url.includes('unsplash.com')) {
+                const baseUrl = url.split('?')[0];
+                let params = `w=${ancho}&q=${calidad}&auto=format`;
+                if (alto) {
+                    params += `&h=${alto}&fit=crop`;
+                }
+                return `${baseUrl}?${params}`;
+            }
+            
+            // Si es randomuser.me (avatares), optimizar también
+            if (url.includes('randomuser.me')) {
+                return url;
+            }
+            
+            // Para otras URLs, devolver original
+            return url;
+        }
+        
+        /**
+         * Carga imágenes con lazy loading mejorado
+         * @param {string} selector - Selector CSS para las imágenes
+         */
+        function iniciarLazyLoading(selector = 'img[data-src]') {
+            if ('IntersectionObserver' in window) {
+                const imageObserver = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            const src = img.getAttribute('data-src');
+                            if (src) {
+                                img.src = src;
+                                img.removeAttribute('data-src');
+                            }
+                            observer.unobserve(img);
+                        }
+                    });
+                });
+                
+                document.querySelectorAll(selector).forEach(img => imageObserver.observe(img));
+            } else {
+                // Fallback para navegadores antiguos
+                document.querySelectorAll(selector).forEach(img => {
+                    const src = img.getAttribute('data-src');
+                    if (src) img.src = src;
+                });
+            }
+        }
+        
+        /**
+         * Crea una imagen optimizada con lazy loading
+         * @param {string} src - URL de la imagen
+         * @param {string} alt - Texto alternativo
+         * @param {number} ancho - Ancho deseado
+         * @param {number} alto - Alto deseado
+         * @returns {string} HTML de la imagen optimizada
+         */
+        function crearImagenOptimizada(src, alt, ancho, alto = null) {
+            const urlOptimizada = optimizarImagen(src, ancho, alto);
+            return `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${ancho} ${alto || ancho}'%3E%3C/svg%3E" data-src="${urlOptimizada}" alt="${alt}" loading="lazy" class="lazy-img">`;
+        }
+        
+        // ============================================
         // DATOS GLOBALES
         // ============================================
         let configuracion = {};
@@ -1883,7 +1960,8 @@
             const hero = document.getElementById('hero');
             if (!hero || !datos) return;
             if (datos.imagen) {
-                hero.style.backgroundImage = `linear-gradient(rgba(0,0,0,${datos.overlay || 0.4}), rgba(0,0,0,${datos.overlay || 0.4})), url('${datos.imagen}')`;
+                const imagenOptimizada = optimizarImagen(datos.imagen, 1600, 900);
+                hero.style.backgroundImage = `linear-gradient(rgba(0,0,0,${datos.overlay || 0.4}), rgba(0,0,0,${datos.overlay || 0.4})), url('${imagenOptimizada}')`;
             }
             document.getElementById('hero-superior').textContent = datos.texto_superior || '';
             document.getElementById('hero-principal').textContent = datos.texto_principal || '';
@@ -1892,7 +1970,7 @@
         }
 
         // ============================================
-        // FUNCIÓN HABITACIONES
+        // FUNCIÓN HABITACIONES (con imágenes optimizadas)
         // ============================================
         function initHabitaciones(lista) {
             const grid = document.getElementById('habitaciones-grid');
@@ -1914,9 +1992,11 @@
                     badgeHTML = `<div class="habitacion-badge badge-${hab.badgeTipo || 'popular'}">${hab.badgePermanente}</div>`;
                 }
                 
+                const imagenOptimizada = optimizarImagen(hab.imagen, 400, 300);
+                
                 card.innerHTML = `
                     <div class="habitacion-img">
-                        <img src="${hab.imagen}" alt="${hab.nombre}" loading="lazy">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${hab.nombre}" loading="lazy">
                         ${badgeHTML}
                     </div>
                     <div class="habitacion-content">
@@ -1935,10 +2015,13 @@
             }
             lista.forEach(hab => grid.appendChild(crearTarjeta(hab)));
             window.habitacionesData = lista;
+            
+            // Iniciar lazy loading para las nuevas imágenes
+            setTimeout(() => iniciarLazyLoading('.habitacion-img img[data-src]'), 100);
         }
 
         // ============================================
-        // FUNCIÓN EXPERIENCIAS
+        // FUNCIÓN EXPERIENCIAS (con imágenes optimizadas)
         // ============================================
         function initExperiencias(datosExp) {
             const grid = document.getElementById('experiencias-grid');
@@ -1954,10 +2037,12 @@
                 card.className = 'experiencia-card';
                 const badgeHTML = exp.badge ? `<div class="experiencia-badge badge-${exp.badgeTipo || 'popular'}">${exp.badge}</div>` : '';
                 const incluyeHTML = (exp.incluye || []).map(item => `<span>${item}</span>`).join('');
+                
+                const imagenOptimizada = optimizarImagen(exp.imagen, 400, 300);
 
                 card.innerHTML = `
                     <div class="experiencia-img">
-                        <img src="${exp.imagen}" alt="${exp.nombre}" loading="lazy">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${exp.nombre}" loading="lazy">
                         ${badgeHTML}
                     </div>
                     <div class="experiencia-content">
@@ -1976,6 +2061,9 @@
                 grid.appendChild(card);
             });
             window.experienciasData = datosExp.lista;
+            
+            // Iniciar lazy loading para las nuevas imágenes
+            setTimeout(() => iniciarLazyLoading('.experiencia-img img[data-src]'), 100);
         }
 
         // ============================================
@@ -2009,7 +2097,9 @@
             if (datos.subtitulo) document.getElementById('nosotros-subtitulo').textContent = datos.subtitulo;
             const imagenContainer = document.getElementById('nosotros-imagen');
             if (imagenContainer && datos.imagen) {
-                imagenContainer.innerHTML = `<img src="${datos.imagen}" alt="Sobre Nosotros">`;
+                const imagenOptimizada = optimizarImagen(datos.imagen, 800, 500);
+                imagenContainer.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="Sobre Nosotros" loading="lazy">`;
+                setTimeout(() => iniciarLazyLoading('#nosotros-imagen img[data-src]'), 100);
             }
             const contenidoContainer = document.getElementById('nosotros-contenido');
             if (!contenidoContainer) return;
@@ -2025,7 +2115,7 @@
         }
 
         // ============================================
-        // FUNCIÓN TESTIMONIOS
+        // FUNCIÓN TESTIMONIOS (avatares optimizados)
         // ============================================
         function initTestimonios(datos) {
             const grid = document.getElementById('testimonios-grid');
@@ -2043,7 +2133,7 @@
                 card.innerHTML = `
                     <p class="testimonio-texto">${testimonio.texto}</p>
                     <div class="testimonio-autor">
-                        <img src="${testimonio.avatar}" alt="${testimonio.nombre}" class="testimonio-avatar">
+                        <img src="${testimonio.avatar}" alt="${testimonio.nombre}" class="testimonio-avatar" loading="lazy">
                         <div class="testimonio-info">
                             <h4>${testimonio.nombre}</h4>
                             <p>${testimonio.lugar}</p>
@@ -2056,7 +2146,7 @@
         }
 
         // ============================================
-        // FUNCIÓN GALERÍA
+        // FUNCIÓN GALERÍA (con imágenes optimizadas)
         // ============================================
         let galeriaState = { items: [], currentIndex: 0, currentFotos: [] };
         function initGaleria(datos) {
@@ -2074,8 +2164,9 @@
                 const galeriaItem = document.createElement('div');
                 galeriaItem.className = 'galeria-item';
                 galeriaItem.dataset.category = item.categoria;
+                const imagenOptimizada = optimizarImagen(item.fotos[0], 400, 300);
                 galeriaItem.innerHTML = `
-                    <img src="${item.fotos[0]}" alt="${item.titulo}" loading="lazy">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${item.titulo}" loading="lazy">
                     <div class="galeria-overlay">
                         <h3>${item.titulo}</h3>
                         <p>${item.descripcion}</p>
@@ -2086,10 +2177,13 @@
                 btn.addEventListener('click', (e) => { e.stopPropagation(); abrirModalGaleria(index); });
                 grid.appendChild(galeriaItem);
             });
+            setTimeout(() => iniciarLazyLoading('.galeria-item img[data-src]'), 100);
         }
+        
+        // Optimizar imágenes del modal también
         function abrirModalGaleria(index) {
             const item = galeriaState.items[index];
-            galeriaState.currentFotos = item.fotos;
+            galeriaState.currentFotos = item.fotos.map(foto => optimizarImagen(foto, 1200, 800));
             galeriaState.currentIndex = 0;
             document.getElementById('modal-imagen').src = galeriaState.currentFotos[0];
             document.getElementById('modal-titulo').textContent = item.titulo;
@@ -2097,14 +2191,17 @@
             document.getElementById('modal-galeria').style.display = 'block';
             document.body.style.overflow = 'hidden';
         }
+        
         function cerrarModalGaleria() {
             document.getElementById('modal-galeria').style.display = 'none';
             document.body.style.overflow = '';
         }
+        
         function cambiarImagenGaleria(direccion) {
             galeriaState.currentIndex = (galeriaState.currentIndex + direccion + galeriaState.currentFotos.length) % galeriaState.currentFotos.length;
             document.getElementById('modal-imagen').src = galeriaState.currentFotos[galeriaState.currentIndex];
         }
+        
         document.querySelector('.modal-cerrar')?.addEventListener('click', cerrarModalGaleria);
         document.getElementById('modal-galeria')?.addEventListener('click', function(e) { if (e.target === this) cerrarModalGaleria(); });
         document.addEventListener('keydown', function(e) {
@@ -2413,4 +2510,4 @@
         cargarTodo();
     </script>
 </body>
-</html>
+    </html>
