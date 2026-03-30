@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="page-title">Cargando...</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Cliente de Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* ===== VARIABLES NEUTRAS ===== */
         :root {
@@ -1786,82 +1788,17 @@
 
     <script>
         // ============================================
-        // FUNCIÓN DE OPTIMIZACIÓN DE IMÁGENES
+        // CONFIGURACIÓN DE SUPABASE
         // ============================================
-        
-        /**
-         * Optimiza URLs de imágenes para mejor rendimiento
-         * @param {string} url - URL original de la imagen
-         * @param {number} ancho - Ancho deseado en píxeles
-         * @param {number} alto - Alto deseado en píxeles (opcional)
-         * @param {number} calidad - Calidad de 1 a 100 (por defecto 80)
-         * @returns {string} URL optimizada
-         */
-        function optimizarImagen(url, ancho, alto = null, calidad = 80) {
-            if (!url) return '';
-            
-            // Si es Unsplash, usar sus parámetros de optimización
-            if (url.includes('unsplash.com')) {
-                const baseUrl = url.split('?')[0];
-                let params = `w=${ancho}&q=${calidad}&auto=format`;
-                if (alto) {
-                    params += `&h=${alto}&fit=crop`;
-                }
-                return `${baseUrl}?${params}`;
-            }
-            
-            // Si es randomuser.me (avatares), optimizar también
-            if (url.includes('randomuser.me')) {
-                return url;
-            }
-            
-            // Para otras URLs, devolver original
-            return url;
+        const SUPABASE_URL = 'https://nvrcqlxnvjvhznmxozhh.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_qCtRLmyJxBbYRcO7Suuqnw_mrmqspp6';
+        let supabase;
+
+        function initSupabase() {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('✅ Supabase inicializado');
         }
-        
-        /**
-         * Carga imágenes con lazy loading mejorado
-         * @param {string} selector - Selector CSS para las imágenes
-         */
-        function iniciarLazyLoading(selector = 'img[data-src]') {
-            if ('IntersectionObserver' in window) {
-                const imageObserver = new IntersectionObserver((entries, observer) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting) {
-                            const img = entry.target;
-                            const src = img.getAttribute('data-src');
-                            if (src) {
-                                img.src = src;
-                                img.removeAttribute('data-src');
-                            }
-                            observer.unobserve(img);
-                        }
-                    });
-                });
-                
-                document.querySelectorAll(selector).forEach(img => imageObserver.observe(img));
-            } else {
-                // Fallback para navegadores antiguos
-                document.querySelectorAll(selector).forEach(img => {
-                    const src = img.getAttribute('data-src');
-                    if (src) img.src = src;
-                });
-            }
-        }
-        
-        /**
-         * Crea una imagen optimizada con lazy loading
-         * @param {string} src - URL de la imagen
-         * @param {string} alt - Texto alternativo
-         * @param {number} ancho - Ancho deseado
-         * @param {number} alto - Alto deseado
-         * @returns {string} HTML de la imagen optimizada
-         */
-        function crearImagenOptimizada(src, alt, ancho, alto = null) {
-            const urlOptimizada = optimizarImagen(src, ancho, alto);
-            return `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${ancho} ${alto || ancho}'%3E%3C/svg%3E" data-src="${urlOptimizada}" alt="${alt}" loading="lazy" class="lazy-img">`;
-        }
-        
+
         // ============================================
         // DATOS GLOBALES
         // ============================================
@@ -1872,6 +1809,96 @@
             servicios: [],
             reservas: []
         };
+
+        // ============================================
+        // CARGA DE DATOS DESDE SUPABASE
+        // ============================================
+        async function cargarDatos() {
+            try {
+                console.log('🔄 Cargando datos desde Supabase...');
+                
+                // Cargar productos (habitaciones)
+                const { data: productos, error: err1 } = await supabase
+                    .from('productos')
+                    .select('*')
+                    .eq('disponible', true);
+                
+                if (err1) throw err1;
+                if (productos) datos.habitaciones = productos;
+                
+                // Cargar paquetes (experiencias)
+                const { data: paquetes, error: err2 } = await supabase
+                    .from('paquetes')
+                    .select('*')
+                    .eq('disponible', true);
+                
+                if (err2) throw err2;
+                if (paquetes) datos.experiencias = paquetes;
+                
+                // Cargar servicios
+                const { data: servicios, error: err3 } = await supabase
+                    .from('servicios')
+                    .select('*');
+                
+                if (err3) throw err3;
+                if (servicios) datos.servicios = servicios;
+                
+                console.log('✅ Datos cargados desde Supabase:', datos);
+                return true;
+                
+            } catch (error) {
+                console.error('❌ Error cargando desde Supabase:', error);
+                return false;
+            }
+        }
+
+        // ============================================
+        // GUARDAR RESERVA EN SUPABASE
+        // ============================================
+        async function guardarReservaEnSupabase(reserva) {
+            try {
+                const { data, error } = await supabase
+                    .from('solicitudes')
+                    .insert([{
+                        tipo: reserva.tipo,
+                        item_id: reserva.item_id,
+                        item_nombre: reserva.item_nombre,
+                        cliente_nombre: reserva.cliente_nombre,
+                        cliente_email: reserva.cliente_email,
+                        cliente_telefono: reserva.cliente_telefono,
+                        fecha: reserva.fecha,
+                        detalles: reserva.detalles || {},
+                        total: reserva.total,
+                        estado: 'pendiente'
+                    }])
+                    .select();
+                
+                if (error) throw error;
+                
+                console.log('✅ Reserva guardada en Supabase:', data);
+                return { success: true, data };
+                
+            } catch (error) {
+                console.error('❌ Error guardando reserva:', error);
+                return { success: false, error };
+            }
+        }
+
+        // ============================================
+        // CARGA DE CONFIGURACIÓN
+        // ============================================
+        async function cargarConfiguracion() {
+            try {
+                const respuesta = await fetch('configuracion.json');
+                if (!respuesta.ok) throw new Error('No se encontró configuracion.json');
+                configuracion = await respuesta.json();
+                console.log('✅ Configuración cargada');
+                return true;
+            } catch (error) {
+                console.log('⚠️ Error cargando configuración:', error.message);
+                return false;
+            }
+        }
 
         // ============================================
         // MENÚ Y NAVEGACIÓN
@@ -1925,43 +1952,13 @@
         });
 
         // ============================================
-        // CARGA DE DATOS
-        // ============================================
-        async function cargarConfiguracion() {
-            try {
-                const respuesta = await fetch('configuracion.json');
-                if (!respuesta.ok) throw new Error('No se encontró configuracion.json');
-                configuracion = await respuesta.json();
-                console.log('✅ Configuración cargada');
-                return true;
-            } catch (error) {
-                console.log('⚠️ Error cargando configuración:', error.message);
-                return false;
-            }
-        }
-
-        async function cargarDatos() {
-            try {
-                const respuesta = await fetch('datos.json');
-                if (!respuesta.ok) throw new Error('No se encontró datos.json');
-                datos = await respuesta.json();
-                console.log('✅ Datos cargados');
-                return true;
-            } catch (error) {
-                console.log('⚠️ Error cargando datos:', error.message);
-                return false;
-            }
-        }
-
-        // ============================================
         // FUNCIÓN HERO
         // ============================================
         function initHero(datos) {
             const hero = document.getElementById('hero');
             if (!hero || !datos) return;
             if (datos.imagen) {
-                const imagenOptimizada = optimizarImagen(datos.imagen, 1600, 900);
-                hero.style.backgroundImage = `linear-gradient(rgba(0,0,0,${datos.overlay || 0.4}), rgba(0,0,0,${datos.overlay || 0.4})), url('${imagenOptimizada}')`;
+                hero.style.backgroundImage = `linear-gradient(rgba(0,0,0,${datos.overlay || 0.4}), rgba(0,0,0,${datos.overlay || 0.4})), url('${datos.imagen}')`;
             }
             document.getElementById('hero-superior').textContent = datos.texto_superior || '';
             document.getElementById('hero-principal').textContent = datos.texto_principal || '';
@@ -1970,7 +1967,7 @@
         }
 
         // ============================================
-        // FUNCIÓN HABITACIONES (con imágenes optimizadas)
+        // FUNCIÓN HABITACIONES
         // ============================================
         function initHabitaciones(lista) {
             const grid = document.getElementById('habitaciones-grid');
@@ -1988,22 +1985,30 @@
                     badgeHTML = `<div class="habitacion-badge badge-oferta">🎁 ${hab.promocion}</div>`;
                 } else if (hab.disponibles < 3) {
                     badgeHTML = `<div class="habitacion-badge badge-popular">🔥 Últimas unidades</div>`;
-                } else if (hab.badgePermanente) {
-                    badgeHTML = `<div class="habitacion-badge badge-${hab.badgeTipo || 'popular'}">${hab.badgePermanente}</div>`;
+                } else if (hab.etiqueta) {
+                    badgeHTML = `<div class="habitacion-badge badge-${hab.etiqueta_tipo || 'popular'}">${hab.etiqueta}</div>`;
                 }
                 
-                const imagenOptimizada = optimizarImagen(hab.imagen, 400, 300);
+                // Convertir caracteristicas de array a string si viene como array
+                let caracteristicas = hab.caracteristicas;
+                if (Array.isArray(caracteristicas)) {
+                    caracteristicas = caracteristicas;
+                } else if (typeof caracteristicas === 'string') {
+                    try { caracteristicas = JSON.parse(caracteristicas); } catch(e) { caracteristicas = []; }
+                } else {
+                    caracteristicas = [];
+                }
                 
                 card.innerHTML = `
                     <div class="habitacion-img">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${hab.nombre}" loading="lazy">
+                        <img src="${hab.imagen}" alt="${hab.nombre}" loading="lazy">
                         ${badgeHTML}
                     </div>
                     <div class="habitacion-content">
                         <h3>${hab.nombre}</h3>
-                        <p class="habitacion-desc">${hab.descripcion}</p>
+                        <p class="habitacion-desc">${hab.descripcion || ''}</p>
                         <div class="habitacion-features">
-                            ${hab.caracteristicas.map(c => `<span>${c}</span>`).join('')}
+                            ${caracteristicas.map(c => `<span>${c}</span>`).join('')}
                         </div>
                         <div class="habitacion-footer">
                             <span class="precio">$${hab.precio} <small>/ noche</small></span>
@@ -2015,17 +2020,14 @@
             }
             lista.forEach(hab => grid.appendChild(crearTarjeta(hab)));
             window.habitacionesData = lista;
-            
-            // Iniciar lazy loading para las nuevas imágenes
-            setTimeout(() => iniciarLazyLoading('.habitacion-img img[data-src]'), 100);
         }
 
         // ============================================
-        // FUNCIÓN EXPERIENCIAS (con imágenes optimizadas)
+        // FUNCIÓN EXPERIENCIAS
         // ============================================
         function initExperiencias(datosExp) {
             const grid = document.getElementById('experiencias-grid');
-            if (!grid || !datosExp?.lista) return;
+            if (!grid || !datosExp) return;
 
             if (datosExp.titulo) document.getElementById('exp-titulo').textContent = datosExp.titulo;
             if (datosExp.subtitulo) document.getElementById('exp-subtitulo').textContent = datosExp.subtitulo;
@@ -2035,14 +2037,22 @@
             datosExp.lista.forEach(exp => {
                 const card = document.createElement('article');
                 card.className = 'experiencia-card';
-                const badgeHTML = exp.badge ? `<div class="experiencia-badge badge-${exp.badgeTipo || 'popular'}">${exp.badge}</div>` : '';
-                const incluyeHTML = (exp.incluye || []).map(item => `<span>${item}</span>`).join('');
+                const badgeHTML = exp.badge ? `<div class="experiencia-badge badge-${exp.badge_tipo || 'popular'}">${exp.badge}</div>` : '';
                 
-                const imagenOptimizada = optimizarImagen(exp.imagen, 400, 300);
+                // Convertir incluye de array a string
+                let incluye = exp.incluye;
+                if (Array.isArray(incluye)) {
+                    incluye = incluye;
+                } else if (typeof incluye === 'string') {
+                    try { incluye = JSON.parse(incluye); } catch(e) { incluye = []; }
+                } else {
+                    incluye = [];
+                }
+                const incluyeHTML = incluye.map(item => `<span>${item}</span>`).join('');
 
                 card.innerHTML = `
                     <div class="experiencia-img">
-                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${exp.nombre}" loading="lazy">
+                        <img src="${exp.imagen}" alt="${exp.nombre}" loading="lazy">
                         ${badgeHTML}
                     </div>
                     <div class="experiencia-content">
@@ -2050,7 +2060,7 @@
                         <div class="experiencia-meta">
                             ${exp.duracion ? `<span><i class="fas fa-clock"></i> ${exp.duracion}</span>` : ''}
                         </div>
-                        <p class="experiencia-desc">${exp.descripcion}</p>
+                        <p class="experiencia-desc">${exp.descripcion || ''}</p>
                         ${incluyeHTML ? `<div class="experiencia-incluye"><h4><i class="fas fa-check-circle"></i> Incluye:</h4><div class="incluye-items">${incluyeHTML}</div></div>` : ''}
                         <div class="experiencia-footer">
                             <span class="experiencia-precio">$${exp.precio} <small>por persona</small></span>
@@ -2061,9 +2071,6 @@
                 grid.appendChild(card);
             });
             window.experienciasData = datosExp.lista;
-            
-            // Iniciar lazy loading para las nuevas imágenes
-            setTimeout(() => iniciarLazyLoading('.experiencia-img img[data-src]'), 100);
         }
 
         // ============================================
@@ -2079,10 +2086,10 @@
                 const card = document.createElement('article');
                 card.className = 'servicio-card';
                 card.innerHTML = `
-                    <div class="servicio-icono">${servicio.icono}</div>
+                    <div class="servicio-icono">${servicio.icono || '<i class="fas fa-star"></i>'}</div>
                     <h3>${servicio.nombre}</h3>
-                    <p class="servicio-desc">${servicio.descripcion}</p>
-                    <span class="servicio-horario"><i class="fas fa-clock"></i> ${servicio.horario}</span>
+                    <p class="servicio-desc">${servicio.descripcion || ''}</p>
+                    <span class="servicio-horario"><i class="fas fa-clock"></i> ${servicio.horario || 'Siempre disponible'}</span>
                 `;
                 grid.appendChild(card);
             });
@@ -2097,9 +2104,7 @@
             if (datos.subtitulo) document.getElementById('nosotros-subtitulo').textContent = datos.subtitulo;
             const imagenContainer = document.getElementById('nosotros-imagen');
             if (imagenContainer && datos.imagen) {
-                const imagenOptimizada = optimizarImagen(datos.imagen, 800, 500);
-                imagenContainer.innerHTML = `<img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 500'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="Sobre Nosotros" loading="lazy">`;
-                setTimeout(() => iniciarLazyLoading('#nosotros-imagen img[data-src]'), 100);
+                imagenContainer.innerHTML = `<img src="${datos.imagen}" alt="Sobre Nosotros">`;
             }
             const contenidoContainer = document.getElementById('nosotros-contenido');
             if (!contenidoContainer) return;
@@ -2115,7 +2120,7 @@
         }
 
         // ============================================
-        // FUNCIÓN TESTIMONIOS (avatares optimizados)
+        // FUNCIÓN TESTIMONIOS
         // ============================================
         function initTestimonios(datos) {
             const grid = document.getElementById('testimonios-grid');
@@ -2133,7 +2138,7 @@
                 card.innerHTML = `
                     <p class="testimonio-texto">${testimonio.texto}</p>
                     <div class="testimonio-autor">
-                        <img src="${testimonio.avatar}" alt="${testimonio.nombre}" class="testimonio-avatar" loading="lazy">
+                        <img src="${testimonio.avatar}" alt="${testimonio.nombre}" class="testimonio-avatar">
                         <div class="testimonio-info">
                             <h4>${testimonio.nombre}</h4>
                             <p>${testimonio.lugar}</p>
@@ -2146,7 +2151,7 @@
         }
 
         // ============================================
-        // FUNCIÓN GALERÍA (con imágenes optimizadas)
+        // FUNCIÓN GALERÍA
         // ============================================
         let galeriaState = { items: [], currentIndex: 0, currentFotos: [] };
         function initGaleria(datos) {
@@ -2164,9 +2169,8 @@
                 const galeriaItem = document.createElement('div');
                 galeriaItem.className = 'galeria-item';
                 galeriaItem.dataset.category = item.categoria;
-                const imagenOptimizada = optimizarImagen(item.fotos[0], 400, 300);
                 galeriaItem.innerHTML = `
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 300'%3E%3C/svg%3E" data-src="${imagenOptimizada}" alt="${item.titulo}" loading="lazy">
+                    <img src="${item.fotos[0]}" alt="${item.titulo}" loading="lazy">
                     <div class="galeria-overlay">
                         <h3>${item.titulo}</h3>
                         <p>${item.descripcion}</p>
@@ -2177,13 +2181,10 @@
                 btn.addEventListener('click', (e) => { e.stopPropagation(); abrirModalGaleria(index); });
                 grid.appendChild(galeriaItem);
             });
-            setTimeout(() => iniciarLazyLoading('.galeria-item img[data-src]'), 100);
         }
-        
-        // Optimizar imágenes del modal también
         function abrirModalGaleria(index) {
             const item = galeriaState.items[index];
-            galeriaState.currentFotos = item.fotos.map(foto => optimizarImagen(foto, 1200, 800));
+            galeriaState.currentFotos = item.fotos;
             galeriaState.currentIndex = 0;
             document.getElementById('modal-imagen').src = galeriaState.currentFotos[0];
             document.getElementById('modal-titulo').textContent = item.titulo;
@@ -2191,17 +2192,14 @@
             document.getElementById('modal-galeria').style.display = 'block';
             document.body.style.overflow = 'hidden';
         }
-        
         function cerrarModalGaleria() {
             document.getElementById('modal-galeria').style.display = 'none';
             document.body.style.overflow = '';
         }
-        
         function cambiarImagenGaleria(direccion) {
             galeriaState.currentIndex = (galeriaState.currentIndex + direccion + galeriaState.currentFotos.length) % galeriaState.currentFotos.length;
             document.getElementById('modal-imagen').src = galeriaState.currentFotos[galeriaState.currentIndex];
         }
-        
         document.querySelector('.modal-cerrar')?.addEventListener('click', cerrarModalGaleria);
         document.getElementById('modal-galeria')?.addEventListener('click', function(e) { if (e.target === this) cerrarModalGaleria(); });
         document.addEventListener('keydown', function(e) {
@@ -2409,28 +2407,112 @@
             document.getElementById('metodo-seleccionado').textContent = mensaje;
             if (validarFormularioReservas()) document.getElementById('btn-reservar-final').disabled = false;
         }
-        function procesarReservaConPago() {
+        
+        async function procesarReservaConPago() {
             if (!validarFormularioReservas()) return;
-            if (!metodoPagoSeleccionado) return alert('⚠️ Por favor, selecciona un método de pago antes de reservar.');
+            if (!metodoPagoSeleccionado) {
+                alert('⚠️ Por favor, selecciona un método de pago antes de reservar.');
+                return;
+            }
+            
             const nombre = document.getElementById('reservas-nombre').value;
             const email = document.getElementById('reservas-email').value;
-            let mensajePago = '';
-            switch(metodoPagoSeleccionado) {
-                case 'paypal': mensajePago = '🔴 Simulación: Redirigiendo a PayPal...\n(Pago real se activará en producción)'; break;
-                case 'stripe': mensajePago = '🔴 Simulación: Procesando con Stripe...\n(Pago real se activará en producción)'; break;
-                case 'tarjeta': mensajePago = '🔴 Simulación: Formulario de tarjeta...\n(Pago real se activará en producción)'; break;
-                case 'transferencia': mensajePago = '🔴 Simulación: Datos bancarios enviados a tu correo.\n(Pago real se activará en producción)'; break;
-            }
+            
+            let reservaData = {};
+            
             if (reservasState.tabActivo === 'habitacion') {
-                const habitaciones = window.habitacionesData || [], habitacion = habitaciones.find(h => h.id === reservasState.habitacionSeleccionada);
-                const total = document.getElementById('reservas-precio-total').textContent;
-                alert(`✅ Reserva de habitación simulada\n\nCliente: ${nombre}\nEmail: ${email}\nHabitación: ${habitacion?.nombre}\nTotal: ${total}\n\n${mensajePago}`);
+                const habitaciones = window.habitacionesData || [];
+                const habitacion = habitaciones.find(h => h.id === reservasState.habitacionSeleccionada);
+                const total = document.getElementById('reservas-precio-total').textContent.replace('$', '');
+                
+                reservaData = {
+                    tipo: 'producto',
+                    item_id: habitacion?.id,
+                    item_nombre: habitacion?.nombre,
+                    cliente_nombre: nombre,
+                    cliente_email: email,
+                    cliente_telefono: '',
+                    fecha: `${reservasState.fechaInicio} → ${reservasState.fechaFin}`,
+                    detalles: {
+                        fecha_inicio: reservasState.fechaInicio,
+                        fecha_fin: reservasState.fechaFin,
+                        noches: document.getElementById('reservas-total-noches').textContent,
+                        metodo_pago: metodoPagoSeleccionado
+                    },
+                    total: parseFloat(total)
+                };
+                
             } else {
-                const exp = reservasState.experienciaSeleccionada, fecha = document.getElementById('exp-fecha').value, hora = document.getElementById('exp-hora').value, personas = document.getElementById('exp-personas').value;
+                const exp = reservasState.experienciaSeleccionada;
+                const fecha = document.getElementById('exp-fecha').value;
+                const hora = document.getElementById('exp-hora').value;
+                const personas = document.getElementById('exp-personas').value;
                 const total = exp.precio * parseInt(personas);
-                alert(`✅ Reserva de experiencia simulada\n\nCliente: ${nombre}\nEmail: ${email}\nExperiencia: ${exp.nombre}\nFecha: ${fecha} ${hora}\nPersonas: ${personas}\nTotal: $${total}\n\n${mensajePago}`);
+                
+                reservaData = {
+                    tipo: 'paquete',
+                    item_id: exp.id,
+                    item_nombre: exp.nombre,
+                    cliente_nombre: nombre,
+                    cliente_email: email,
+                    cliente_telefono: '',
+                    fecha: `${fecha} ${hora}`,
+                    detalles: {
+                        fecha: fecha,
+                        hora: hora,
+                        personas: personas,
+                        metodo_pago: metodoPagoSeleccionado
+                    },
+                    total: total
+                };
+            }
+            
+            // Mostrar loading
+            const btn = document.getElementById('btn-reservar-final');
+            const textoOriginal = btn.textContent;
+            btn.textContent = '⏳ Guardando...';
+            btn.disabled = true;
+            
+            // Guardar en Supabase
+            const resultado = await guardarReservaEnSupabase(reservaData);
+            
+            btn.textContent = textoOriginal;
+            btn.disabled = false;
+            
+            if (resultado.success) {
+                let mensajePago = '';
+                switch(metodoPagoSeleccionado) {
+                    case 'paypal': mensajePago = '🔴 Redirigiendo a PayPal...\n(Pago real se activará en producción)'; break;
+                    case 'stripe': mensajePago = '🔴 Procesando con Stripe...\n(Pago real se activará en producción)'; break;
+                    case 'tarjeta': mensajePago = '🔴 Formulario de tarjeta...\n(Pago real se activará en producción)'; break;
+                    case 'transferencia': mensajePago = '🔴 Datos bancarios enviados a tu correo.\n(Pago real se activará en producción)'; break;
+                }
+                
+                alert(`✅ ¡Solicitud guardada con éxito!\n\nNúmero de solicitud: ${resultado.data[0]?.id || 'N/A'}\n\n${mensajePago}`);
+                
+                // Limpiar formulario
+                document.getElementById('reservas-nombre').value = '';
+                document.getElementById('reservas-email').value = '';
+                
+                // Resetear selecciones
+                reservasState.fechaInicio = null;
+                reservasState.fechaFin = null;
+                reservasState.habitacionSeleccionada = null;
+                reservasState.experienciaSeleccionada = null;
+                renderizarCalendario();
+                
+                // Resetear UI de selección
+                document.querySelectorAll('.habitacion-card-reserva').forEach(card => card.classList.remove('seleccionada'));
+                document.querySelectorAll('.experiencia-card-reserva').forEach(card => card.classList.remove('seleccionada'));
+                document.getElementById('experiencia-seleccionada-info').style.display = 'none';
+                
+                // Resetear resúmenes
+                actualizarResumenReservas();
+            } else {
+                alert('❌ Error al guardar la solicitud. Por favor, intenta de nuevo.');
             }
         }
+        
         function initReservas(datosReservas) {
             if (!datosReservas) return;
             if (datosReservas.titulo) document.getElementById('reservas-titulo').textContent = datosReservas.titulo;
@@ -2449,6 +2531,9 @@
         // CARGA PRINCIPAL
         // ============================================
         async function cargarTodo() {
+            // Inicializar Supabase
+            initSupabase();
+            
             await cargarConfiguracion();
             await cargarDatos();
 
@@ -2470,14 +2555,14 @@
             // Hero
             if (configuracion.hero) initHero(configuracion.hero);
             
-            // Habitaciones (desde datos.json)
+            // Habitaciones (desde Supabase)
             if (datos.habitaciones && datos.habitaciones.length > 0) {
                 document.getElementById('hab-titulo').textContent = "Nuestras Habitaciones";
                 document.getElementById('hab-subtitulo').textContent = "Espacios diseñados para tu descanso con vista al mar";
                 initHabitaciones(datos.habitaciones);
             }
             
-            // Experiencias (desde datos.json)
+            // Experiencias (desde Supabase)
             if (datos.experiencias && datos.experiencias.length > 0) {
                 initExperiencias({
                     titulo: "Experiencias Únicas",
@@ -2486,7 +2571,7 @@
                 });
             }
             
-            // Servicios (desde datos.json)
+            // Servicios (desde Supabase)
             if (datos.servicios && datos.servicios.length > 0) {
                 initServicios(datos.servicios);
             }
@@ -2510,4 +2595,4 @@
         cargarTodo();
     </script>
 </body>
-    </html>
+</html>
